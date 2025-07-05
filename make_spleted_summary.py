@@ -14,34 +14,47 @@ def split_text_by_week(text):
     Returns:
         list of str: 各週ごとに分割されたテキストのリスト
     """
-    # 日付パターンの抽出（例：2025-01-16）
+    # 日付パターン（例：2025-01-16）
     date_pattern = re.compile(r"\d{4}-\d{2}-\d{2}")
     date_positions = [(m.group(), m.start()) for m in date_pattern.finditer(text)]
 
     if not date_positions:
-        return [text]  # 日付が見つからない場合はそのまま返す
+        return [text]
 
-    # 日付ごとのセグメントを作成
+    # セグメント作成
     segments = []
     for i in range(len(date_positions)):
         date_str, start_pos = date_positions[i]
         end_pos = date_positions[i + 1][1] if i + 1 < len(date_positions) else len(text)
         segment_text = text[start_pos:end_pos]
-        segments.append((date_str, segment_text))
 
-    # 最初の日付を基準に1週間ごとに分類
+        try:
+            # 日付としてパースできるものだけ対象にする
+            datetime.strptime(date_str, "%Y-%m-%d")
+            segments.append((date_str, segment_text))
+        except ValueError:
+            # 前のセグメントがあればそこに連結、なければ無視
+            if segments:
+                segments[-1] = (segments[-1][0], segments[-1][1] + "\n" + segment_text)
+
+    if not segments:
+        return [text]
+
+    # 最初の日付を基準にグループ化
     base_date = datetime.strptime(segments[0][0], "%Y-%m-%d")
     grouped = {}
 
     for date_str, segment_text in segments:
-        current_date = datetime.strptime(date_str, "%Y-%m-%d")
+        try:
+            current_date = datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            continue  # この時点ではありえないが安全のため
         week_offset = (current_date - base_date).days // 7
         group_key = (base_date + timedelta(weeks=week_offset)).strftime("%Y-%m-%d")
         if group_key not in grouped:
             grouped[group_key] = ""
         grouped[group_key] += segment_text
-    # グループ順に並べてリストで返す
-    print([grouped[k] for k in sorted(grouped.keys())])
+
     return [grouped[k] for k in sorted(grouped.keys())]
 
 
